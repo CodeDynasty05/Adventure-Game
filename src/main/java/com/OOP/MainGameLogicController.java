@@ -410,21 +410,38 @@ public class MainGameLogicController {
         // else: activate method handles failure messages
     }
 
-    private void attackTarget(String targetName) {
-        LivingBeing target = player.getCurrentRoom().getLivingBeingByName(targetName);
-        if (target == null) {
-            outputConsumer.accept("There is no one here named '" + targetName + "' to attack.");
-            return;
-        }
-        if (target instanceof Player) {
-            outputConsumer.accept("You contemplate attacking yourself, but decide against it.");
-            return;
-        }
-        if (target instanceof NPC && ((NPC)target).isFriendly()) {
-            outputConsumer.accept(target.getName() + " is friendly. Attacking them might have consequences!");
+    // In MainGameLogicController.java -> attackTarget(String targetNameFromInput)
+    private void attackTarget(String targetNameFromInput) {
+        LivingBeing target = null;
+        String searchName = targetNameFromInput.replace("_", " "); // Convert underscores back to spaces
+
+        // Try exact match first (case-insensitive)
+        for (LivingBeing lb : player.getCurrentRoom().getLivingBeings()) {
+            if (lb.getName().equalsIgnoreCase(searchName) && lb instanceof Enemy) {
+                target = lb;
+                break;
+            }
         }
 
-        player.attack(target); // Prints its own messages
+        // If no exact match, maybe a partial match or if input was just "goblin" for "Grumpy Goblin"
+        if (target == null) {
+            for (LivingBeing lb : player.getCurrentRoom().getLivingBeings()) {
+                if (lb.getName().toLowerCase().contains(searchName.toLowerCase()) && lb instanceof Enemy) {
+                    target = lb;
+                    System.out.println("(Interpreted target as: " + lb.getName() + ")"); // Optional feedback
+                    break;
+                }
+            }
+        }
+
+
+        if (target == null) {
+            outputConsumer.accept("There is no one here named '" + searchName + "' to attack.");
+            return;
+        }
+        // ... (rest of attack logic: check if friendly, player.attack(target), etc.) ...
+        player.attack(target);
+        // Enemy retaliation is handled in handleEnemyTurns(), which should be called after player's action.
     }
 
     private void handleEnemyTurns() {

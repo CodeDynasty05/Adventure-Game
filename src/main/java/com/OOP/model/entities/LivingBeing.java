@@ -5,6 +5,7 @@ import com.OOP.model.items.Item;
 import com.OOP.model.items.Weapon;
 import com.OOP.model.items.Shield;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,18 +14,61 @@ public abstract class LivingBeing extends Entity {
     private int maxHealthPoints;
     private int attackPower;
     private Room currentRoom;
-    private List<Item> inventory;
+    public List<Item> inventory;
     private Weapon equippedWeapon;
     private Shield equippedShield;
-
+    protected int tileX = -1; // Default to off-map or unassigned
+    protected int tileY = -1;
 
     public LivingBeing(String id, String name, String description, int healthPoints, int attackPower, Room currentRoom) {
         super(id, name, description);
         this.healthPoints = healthPoints;
         this.maxHealthPoints = healthPoints;
         this.attackPower = attackPower;
-        this.currentRoom = currentRoom;
         this.inventory = new ArrayList<>();
+        this.currentRoom = currentRoom; // Don't call setCurrentRoom here to avoid recursion if setCurrentRoom sets tile pos
+        if (currentRoom != null && !(this instanceof Player)) { // Player sets its own initial pos
+            // Default placement for non-player entities if not set explicitly later
+            // This is a very basic default. Better to set explicitly in World.java
+            Point p = currentRoom.findRandomWalkableFloorTile();
+            if(p!=null) {this.tileX = p.x; this.tileY = p.y;}
+        }
+    }
+
+    public int getTileX() { return tileX; }
+    public void setTileX(int tileX) { this.tileX = tileX; }
+    public int getTileY() { return tileY; }
+    public void setTileY(int tileY) { this.tileY = tileY; }
+    public Point getTileCoordinates() {
+        if(tileX == -1 || tileY == -1) return null;
+        return new Point(tileX, tileY);
+    }
+    public void setTileCoordinates(int x, int y) { this.tileX = x; this.tileY = y; }
+    public void setTileCoordinates(Point p) {
+        if (p != null) { this.tileX = p.x; this.tileY = p.y; }
+        else { this.tileX = -1; this.tileY = -1; }
+    }
+
+
+    // When a LivingBeing changes room, its tile position needs to be updated.
+    // Player.setCurrentRoom already handles this using door entry points.
+    // For NPCs/Enemies, if they can change rooms, similar logic would be needed.
+    // If they are static to a room, set their tileX/Y upon creation.
+
+    public void setCurrentRoom(Room newRoom){
+        if (this.currentRoom != null) {
+            this.currentRoom.removeLivingBeing(this);
+        }
+        this.currentRoom = newRoom;
+        if (this.currentRoom != null) {
+            this.currentRoom.addLivingBeing(this);
+            // If not a player, and tileX/Y are unassigned, place randomly or at a designated spot.
+            // Player handles its own positioning via door entry points.
+            if (!(this instanceof Player) && (this.tileX == -1 || this.tileY == -1)) {
+                Point p = newRoom.findRandomWalkableFloorTile(); // Or a specific spawn point char from layout
+                if(p!=null) this.setTileCoordinates(p);
+            }
+        }
     }
 
     public int getHealthPoints() {
@@ -50,16 +94,6 @@ public abstract class LivingBeing extends Entity {
 
     public Room getCurrentRoom() {
         return currentRoom;
-    }
-
-    public void setCurrentRoom(Room currentRoom) {
-        if (this.currentRoom != null) {
-            this.currentRoom.removeLivingBeing(this);
-        }
-        this.currentRoom = currentRoom;
-        if (this.currentRoom != null) {
-            this.currentRoom.addLivingBeing(this);
-        }
     }
 
     public List<Item> getInventory() {
